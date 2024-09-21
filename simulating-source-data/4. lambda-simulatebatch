@@ -1,0 +1,44 @@
+import boto3
+import time
+import os
+import json
+
+
+s3 = boto3.client('s3')
+
+def lambda_handler(event, context):
+    # Source and destination bucket and paths
+    source_bucket = 'dataprepcapstone'
+    source_prefix = 'splitfiles/'
+    destination_bucket = 'landingzone48'
+    destination_prefix = 'source_data/'
+
+    # List objects in the source bucket with the specified prefix
+    objects = s3.list_objects_v2(Bucket=source_bucket, Prefix=source_prefix)
+    
+    # Get all files from the split-files directory
+    files = [obj['Key'] for obj in objects.get('Contents', []) if obj['Key'] != source_prefix]
+
+    if files:
+        # Select the first file to move
+        file_to_move = files[0]
+
+        # Define the copy source and destination paths
+        copy_source = {'Bucket': source_bucket, 'Key': file_to_move}
+        destination_key = destination_prefix + file_to_move.split('/')[-1]
+
+        # Copy the file to the destination bucket
+        s3.copy_object(CopySource=copy_source, Bucket=destination_bucket, Key=destination_key)
+
+        # Delete the file from the source bucket after copying
+        s3.delete_object(Bucket=source_bucket, Key=file_to_move)
+
+        return {
+            'statusCode': 200,
+            'body': f"Moved {file_to_move} to {destination_bucket}/{destination_key}"
+        }
+    else:
+        return {
+            'statusCode': 200,
+            'body': "No more files to move"
+        }

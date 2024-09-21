@@ -1,0 +1,51 @@
+import sys
+import io
+import zipfile
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+import boto3
+
+# Get job name from args
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+# Initialize Spark, Glue, and job contexts
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+# Initialize S3 client
+s3 = boto3.client('s3')
+
+# Variables for S3 bucket and folders
+bucket_name = 'your-bucket-name'
+source_folder = 'source-folder/'  # Folder containing the zip file
+zip_file_name = 'file.zip'        # The name of the zip file
+destination_folder = 'destination-folder/'  # Folder to copy unzipped files to
+
+# Full path for the zip file in the source folder
+source_zip_path = f'{source_folder}{zip_file_name}'
+
+# Download zip file from S3 into memory
+zip_obj = s3.get_object(Bucket=bucket_name, Key=source_zip_path)
+buffer = io.BytesIO(zip_obj['Body'].read())
+
+# Unzip the file in memory and upload the contents back to S3
+with zipfile.ZipFile(buffer, 'r') as zip_ref:
+    for file_name in zip_ref.namelist():
+        # Extract the file content
+        file_content = zip_ref.read(file_name)
+        
+        # Define the destination path for the unzipped file
+        dest_path = f'{destination_folder}{file_name}'
+        
+        # Upload unzipped file to the destination folder in S3
+        s3.put_object(Bucket=bucket_name, Key=dest_path, Body=file_content)
+        print(f'Uploaded {file_name} to {dest_path}')
+
+# Commit the Glue job
+job.commit()

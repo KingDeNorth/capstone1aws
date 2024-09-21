@@ -1,0 +1,43 @@
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+## @params: [JOB_NAME]
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+
+import boto3
+from awsglue.context import GlueContext
+from awsglue.transforms import *
+from pyspark.sql import SparkSession
+
+# Initialize Spark session and Glue context
+spark = SparkSession.builder \
+    .appName("Split Large File") \
+    .getOrCreate()
+glueContext = GlueContext(spark)
+
+# Load the data from the source bucket
+input_bucket = "dataprepcapstone"
+input_key = "unzippedfile/"  # Change to your file's format
+source_s3_path = f"s3://{input_bucket}/{input_key}"
+
+# Read data into a Spark DataFrame
+df = spark.read.option("header", "true").csv(source_s3_path)
+
+# Partition the DataFrame into 48 parts and write to "source_data" bucket
+output_bucket = "dataprepcapstone"
+output_s3_path = f"s3://{output_bucket}/splitfiles/"
+
+df.repartition(48).write.mode("overwrite").csv(output_s3_path, header=True)
+
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+job.commit()
