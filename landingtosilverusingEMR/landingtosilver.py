@@ -83,10 +83,10 @@ try:
 
         df.show()
         # Write the results back to S3 in CSV format
-        categories.write.mode("append").csv(destination_s3_path_categories)
-        products.write.mode("append").csv(destination_s3_path_products)
-        users.write.mode("append").csv(destination_s3_path_users)
-        df.write.mode("append").csv(destination_s3_path_events)
+        categories.write.mode("append").option("header", "true").csv(destination_s3_path_categories)
+        products.write.mode("append").option("header", "true").csv(destination_s3_path_products)
+        users.write.mode("append").option("header", "true").csv(destination_s3_path_users)
+        df.write.mode("append").option("header", "true").csv(destination_s3_path_events)
         
         # If processing is successful, move the file to the archived folder
         archive_key = file_key.replace('source_data/', 'archived/')
